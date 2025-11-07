@@ -1,0 +1,38 @@
+# Core dependencies
+pandas>=2.0.0
+openpyxl>=3.1.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+aiohttp>=3.9.0
+
+# PDF processing
+pymupdf>=1.23.0
+pymupdf4llm>=0.0.4
+
+# Optional PDF processing (for advanced features)
+camelot-py[base]>=0.11.0
+pdf2doi>=1.5
+
+# arXiv API
+arxiv>=2.0.0
+
+# Text similarity
+rapidfuzz>=3.0.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Logging
+structlog>=23.0.0
+
+# Retry logic
+tenacity>=8.2.0
+
+# Image processing (for Camelot)
+opencv-python>=4.8.0
+
+# Ghostscript (for Camelot table extraction)
+# Note: Ghostscript must be installed separately on your system
+# Ubuntu/Debian: sudo apt-get install ghostscript
+# macOS: brew install ghostscript
+# Windows: Download from https://ghostscript.com/
