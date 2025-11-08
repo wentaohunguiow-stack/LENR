@@ -1,0 +1,171 @@
+{
+  "name": "LENR Paper Collection Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Daily at 2 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://lenr-api:8000/collect",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={\n  \"sources\": [\"lenr-canr\", \"arxiv\"],\n  \"max_papers\": 20,\n  \"deepseek_verify\": true,\n  \"webhook_url\": \"{{ $workflow.webhook }}/completion\"\n}"
+      },
+      "name": "Start Collection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://lenr-api:8000/jobs/{{ $json.job_id }}",
+        "method": "GET",
+        "options": {}
+      },
+      "name": "Check Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "name": "Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [910, 300],
+      "webhookId": "completion"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "operation": "equals",
+              "value2": "completed"
+            }
+          ]
+        }
+      },
+      "name": "Job Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://lenr-api:8000/statistics",
+        "method": "GET",
+        "options": {}
+      },
+      "name": "Get Statistics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1350, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "notifications@yourdomain.com",
+        "toEmail": "admin@yourdomain.com",
+        "subject": "LENR Collection Complete",
+        "text": "=Collection job completed successfully!\n\nPapers collected: {{ $json.result.papers_collected }}\nSuccessful: {{ $json.result.successful }}\nFailed: {{ $json.result.failed }}\n\nTotal papers in database: {{ $json.result.database_stats.total_papers }}\nVerified: {{ $json.result.database_stats.verified }}\nAverage score: {{ $json.result.database_stats.avg_score }}"
+      },
+      "name": "Send Success Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1570, 200]
+    }
+  ],
+  "connections": {
+    "Schedule Daily at 2 AM": {
+      "main": [
+        [
+          {
+            "node": "Start Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Collection": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Wait 30s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30s": {
+      "main": [
+        [
+          {
+            "node": "Job Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Complete?": {
+      "main": [
+        [
+          {
+            "node": "Get Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Statistics": {
+      "main": [
+        [
+          {
+            "node": "Send Success Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

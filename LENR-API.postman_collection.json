@@ -1,0 +1,233 @@
+{
+  "info": {
+    "name": "LENR Research Collection API",
+    "description": "Postman collection for testing LENR Collection System API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        },
+        "description": "Check API health status"
+      }
+    },
+    {
+      "name": "Start Collection Job",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "pm.collectionVariables.set(\"job_id\", response.job_id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sources\": [\"lenr-canr\"],\n  \"max_papers\": 5,\n  \"deepseek_verify\": false\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/collect",
+          "host": ["{{base_url}}"],
+          "path": ["collect"]
+        },
+        "description": "Start a new collection job"
+      }
+    },
+    {
+      "name": "Get Job Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/jobs/{{job_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["jobs", "{{job_id}}"]
+        },
+        "description": "Check status of a collection job"
+      }
+    },
+    {
+      "name": "List All Jobs",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/jobs",
+          "host": ["{{base_url}}"],
+          "path": ["jobs"]
+        },
+        "description": "List all collection jobs"
+      }
+    },
+    {
+      "name": "Query Papers - All",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/papers?limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["papers"],
+          "query": [
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get all papers (limited)"
+      }
+    },
+    {
+      "name": "Query Papers - By Author",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/papers?author=Storms&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["papers"],
+          "query": [
+            {
+              "key": "author",
+              "value": "Storms"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Query papers by author name"
+      }
+    },
+    {
+      "name": "Query Papers - High Score",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/papers?min_score=0.8&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["papers"],
+          "query": [
+            {
+              "key": "min_score",
+              "value": "0.8"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Get papers with high DeepSeek scores"
+      }
+    },
+    {
+      "name": "Query Papers - By Source",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/papers?source=arXiv&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["papers"],
+          "query": [
+            {
+              "key": "source",
+              "value": "arXiv"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Query papers from specific source"
+      }
+    },
+    {
+      "name": "Get Statistics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/statistics",
+          "host": ["{{base_url}}"],
+          "path": ["statistics"]
+        },
+        "description": "Get database statistics"
+      }
+    },
+    {
+      "name": "Export CSV",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/export?format=csv",
+          "host": ["{{base_url}}"],
+          "path": ["export"],
+          "query": [
+            {
+              "key": "format",
+              "value": "csv"
+            }
+          ]
+        },
+        "description": "Export database to CSV file"
+      }
+    },
+    {
+      "name": "Export JSON",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/export?format=json",
+          "host": ["{{base_url}}"],
+          "path": ["export"],
+          "query": [
+            {
+              "key": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "description": "Export database to JSON file"
+      }
+    }
+  ]
+}
