@@ -1,0 +1,181 @@
+{
+  "name": "LENR Paper Scraper - Direct in n8n",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Schedule Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://lenr-canr.org/wordpress/?page_id=3009",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "scrape-lenr",
+      "name": "Scrape LENR-CANR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse HTML table to extract papers\nconst html = $input.item.json.data;\nconst cheerio = require('cheerio');\nconst $ = cheerio.load(html);\n\nconst papers = [];\n\n// Find all table rows\n$('table tr').each((i, row) => {\n  if (i === 0) return; // Skip header\n  \n  const cells = $(row).find('td');\n  if (cells.length < 9) return;\n  \n  // Extract data from cells\n  const recnum = $(cells[0]).text().trim();\n  const date = $(cells[2]).text().trim();\n  const authors = $(cells[4]).text().trim();\n  const title = $(cells[5]).text().trim();\n  const journal = $(cells[6]).text().trim();\n  \n  // Extract PDF link\n  const linkElem = $(cells[8]).find('a');\n  let pdfUrl = linkElem.attr('href');\n  \n  if (pdfUrl && !pdfUrl.startsWith('http')) {\n    pdfUrl = 'https://lenr-canr.org/' + pdfUrl.replace(/^\\//, '');\n  }\n  \n  if (title && pdfUrl) {\n    papers.push({\n      recnum,\n      title,\n      authors,\n      date_published: date,\n      journal,\n      url: pdfUrl,\n      source: 'LENR-CANR',\n      date_added: new Date().toISOString().split('T')[0]\n    });\n  }\n});\n\nreturn papers.map(paper => ({ json: paper }));"
+      },
+      "id": "parse-html",
+      "name": "Parse HTML to Papers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "batch",
+      "name": "Process in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.url }}",
+          "mode": "url"
+        }
+      },
+      "id": "download-pdf",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": "Sheet1",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.title }}",
+            "Authors": "={{ $json.authors }}",
+            "Date": "={{ $json.date_published }}",
+            "Journal": "={{ $json.journal }}",
+            "URL": "={{ $json.url }}",
+            "Source": "={{ $json.source }}",
+            "Added": "={{ $json.date_added }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "save-to-sheet",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1340, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_CREDENTIALS",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Daily": {
+      "main": [
+        [
+          {
+            "node": "Scrape LENR-CANR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape LENR-CANR": {
+      "main": [
+        [
+          {
+            "node": "Parse HTML to Papers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse HTML to Papers": {
+      "main": [
+        [
+          {
+            "node": "Process in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process in Batches": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Process in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

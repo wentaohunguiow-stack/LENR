@@ -1,0 +1,81 @@
+{
+  "name": "LENR Scraper - Minimal (No Dependencies)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://lenr-canr.org/wordpress/?page_id=3009",
+        "options": {}
+      },
+      "id": "fetch-page",
+      "name": "Fetch LENR-CANR Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple HTML parser - no external dependencies\nconst html = $input.item.json.data;\n\n// Extract table rows using regex\nconst rowRegex = /<tr[^>]*>(.*?)<\\/tr>/gis;\nconst cellRegex = /<td[^>]*>(.*?)<\\/td>/gis;\n\nconst papers = [];\nlet rowMatch;\nlet rowIndex = 0;\n\nwhile ((rowMatch = rowRegex.exec(html)) !== null) {\n  rowIndex++;\n  if (rowIndex === 1) continue; // Skip header\n  \n  const rowHtml = rowMatch[1];\n  const cells = [];\n  let cellMatch;\n  \n  while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {\n    // Remove HTML tags\n    const cellText = cellMatch[1]\n      .replace(/<[^>]*>/g, '')\n      .replace(/&nbsp;/g, ' ')\n      .trim();\n    cells.push(cellText);\n  }\n  \n  if (cells.length >= 9) {\n    // Extract PDF URL\n    const urlMatch = rowHtml.match(/href=[\"'](.*?\\.pdf)[\"']/i);\n    let pdfUrl = urlMatch ? urlMatch[1] : '';\n    \n    if (pdfUrl && !pdfUrl.startsWith('http')) {\n      pdfUrl = 'https://lenr-canr.org/' + pdfUrl.replace(/^\\//, '');\n    }\n    \n    if (cells[5] && pdfUrl) {\n      papers.push({\n        recnum: cells[0],\n        title: cells[5],\n        authors: cells[4],\n        date_published: cells[2],\n        journal: cells[6],\n        url: pdfUrl,\n        source: 'LENR-CANR',\n        date_added: new Date().toISOString().split('T')[0],\n        status: 'pending'\n      });\n    }\n  }\n}\n\n// Limit to first 10 papers for testing\nreturn papers.slice(0, 10).map(paper => ({ json: paper }));"
+      },
+      "id": "parse-papers",
+      "name": "Parse Papers (No Libs)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $json }}",
+        "options": {}
+      },
+      "id": "show-results",
+      "name": "Show Results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Fetch LENR-CANR Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch LENR-CANR Page": {
+      "main": [
+        [
+          {
+            "node": "Parse Papers (No Libs)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Papers (No Libs)": {
+      "main": [
+        [
+          {
+            "node": "Show Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

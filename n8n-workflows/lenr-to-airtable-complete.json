@@ -1,0 +1,198 @@
+{
+  "name": "LENR Papers → Airtable (Complete)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Daily at 2 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://lenr-canr.org/wordpress/?page_id=3009",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrape",
+      "name": "Scrape LENR-CANR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LENR-CANR table\nconst html = $input.item.json.data;\nconst papers = [];\n\n// Simple regex-based parser\nconst rowRegex = /<tr[^>]*>(.*?)<\\/tr>/gis;\nlet rowIndex = 0;\n\nlet match;\nwhile ((match = rowRegex.exec(html)) !== null) {\n  rowIndex++;\n  if (rowIndex === 1) continue; // Skip header\n  \n  const row = match[1];\n  \n  // Extract cells\n  const cells = [];\n  const cellRegex = /<td[^>]*>(.*?)<\\/td>/gis;\n  let cellMatch;\n  \n  while ((cellMatch = cellRegex.exec(row)) !== null) {\n    const text = cellMatch[1].replace(/<[^>]*>/g, '').trim();\n    cells.push(text);\n  }\n  \n  // Extract PDF URL\n  const urlMatch = row.match(/href=[\"'](.*?\\.pdf)[\"']/i);\n  let pdfUrl = urlMatch ? urlMatch[1] : '';\n  \n  if (pdfUrl && !pdfUrl.startsWith('http')) {\n    pdfUrl = 'https://lenr-canr.org/' + pdfUrl.replace(/^\\//, '');\n  }\n  \n  // Only add if has title and URL\n  if (cells.length >= 9 && cells[5] && pdfUrl) {\n    papers.push({\n      Title: cells[5],\n      Authors: cells[4],\n      Date: cells[2],\n      Journal: cells[6],\n      URL: pdfUrl,\n      Source: 'LENR-CANR',\n      Recnum: cells[0],\n      'Date Added': new Date().toISOString().split('T')[0]\n    });\n  }\n}\n\nconsole.log(`Found ${papers.length} papers`);\n\n// Limit for testing (remove in production)\nreturn papers.slice(0, 20).map(p => ({ json: p }));"
+      },
+      "id": "parse",
+      "name": "Parse Papers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_TABLE_ID",
+          "mode": "id"
+        },
+        "filterByFormula": "={URL} = '{{ $json.URL }}'",
+        "options": {}
+      },
+      "id": "check-exists",
+      "name": "Check if Exists",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [900, 400],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.data ? $json.data.length : 0 }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-new",
+      "name": "Is New Paper?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "YOUR_BASE_ID",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "YOUR_TABLE_ID",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $node['Parse Papers'].json.Title }}",
+            "Authors": "={{ $node['Parse Papers'].json.Authors }}",
+            "Date": "={{ $node['Parse Papers'].json.Date }}",
+            "Journal": "={{ $node['Parse Papers'].json.Journal }}",
+            "URL": "={{ $node['Parse Papers'].json.URL }}",
+            "Source": "LENR-CANR",
+            "Date Added": "={{ $node['Parse Papers'].json['Date Added'] }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "add-to-airtable",
+      "name": "Add to Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "rate-limit",
+      "name": "Rate Limit",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Daily at 2 AM": {
+      "main": [
+        [
+          {
+            "node": "Scrape LENR-CANR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape LENR-CANR": {
+      "main": [
+        [
+          {
+            "node": "Parse Papers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Papers": {
+      "main": [
+        [
+          {
+            "node": "Check if Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Exists": {
+      "main": [
+        [
+          {
+            "node": "Is New Paper?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Paper?": {
+      "main": [
+        [
+          {
+            "node": "Add to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

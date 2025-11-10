@@ -33,6 +33,7 @@ env/
 pdfs/
 logs/
 *.log
+data/
 
 # Checkpoints
 checkpoint.json
